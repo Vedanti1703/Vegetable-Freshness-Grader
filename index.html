@@ -1,0 +1,553 @@
+<!-- 
+  CHANGES FROM ORIGINAL:
+  Line 435: Changed "Groq" to "Custom CNN"
+  Line 477: Changed "Groq" to "CNN"
+  
+  All other UI, styling, and functionality remain exactly the same
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vegetable Freshness Grader</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* [EXACT SAME CSS AS ORIGINAL - NO CHANGES] */
+    :root {
+      --green  : #2d6a4f;
+      --lime   : #95d44a;
+      --yellow : #f4c430;
+      --orange : #e07b39;
+      --red    : #c1392b;
+      --bg     : #f7f4ef;
+      --card   : #ffffff;
+      --text   : #1a1a1a;
+      --muted  : #888;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family    : 'DM Sans', sans-serif;
+      background     : var(--bg);
+      color          : var(--text);
+      min-height     : 100vh;
+    }
+
+    body::before {
+      content   : '';
+      position  : fixed;
+      inset     : 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index   : 9999;
+    }
+
+    .header {
+      padding    : 28px 40px;
+      display    : flex;
+      align-items: center;
+      gap        : 14px;
+      border-bottom: 1px solid #e5e0d8;
+    }
+
+    .header-icon {
+      font-size  : 2rem;
+      background : var(--green);
+      width      : 52px;
+      height     : 52px;
+      border-radius: 14px;
+      display    : flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size  : 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      font-size: 0.85rem;
+      color    : var(--muted);
+      margin-top: 2px;
+    }
+
+    .main {
+      max-width: 960px;
+      margin   : 0 auto;
+      padding  : 48px 24px;
+    }
+
+    .upload-zone {
+      border        : 2px dashed #c8c2b8;
+      border-radius : 20px;
+      padding       : 60px 24px;
+      text-align    : center;
+      cursor        : pointer;
+      transition    : all 0.2s;
+      background    : white;
+      position      : relative;
+      overflow      : hidden;
+    }
+
+    .upload-zone:hover, .upload-zone.drag {
+      border-color  : var(--green);
+      background    : #f0faf4;
+    }
+
+    .upload-zone input {
+      position: absolute;
+      inset   : 0;
+      opacity : 0;
+      cursor  : pointer;
+      width   : 100%;
+      height  : 100%;
+    }
+
+    .upload-icon { font-size: 3.5rem; margin-bottom: 16px; }
+
+    .upload-zone h2 {
+      font-family: 'Syne', sans-serif;
+      font-size  : 1.4rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .upload-zone p { color: var(--muted); font-size: 0.9rem; }
+
+    .btn {
+      margin-top   : 24px;
+      padding      : 14px 36px;
+      background   : var(--green);
+      color        : white;
+      border       : none;
+      border-radius: 50px;
+      font-family  : 'Syne', sans-serif;
+      font-size    : 0.95rem;
+      font-weight  : 700;
+      cursor       : pointer;
+      transition   : transform 0.15s, background 0.15s;
+      display      : inline-block;
+    }
+
+    .btn:hover    { background: #235c42; transform: translateY(-1px); }
+    .btn:disabled { background: #aaa; cursor: not-allowed; transform: none; }
+
+    .preview-wrap {
+      margin-top   : 28px;
+      display      : flex;
+      justify-content: center;
+    }
+
+    .preview-wrap img {
+      max-height   : 280px;
+      max-width    : 100%;
+      border-radius: 16px;
+      box-shadow   : 0 8px 32px rgba(0,0,0,0.12);
+      object-fit   : cover;
+    }
+
+    .loading {
+      text-align : center;
+      padding    : 48px;
+    }
+
+    .spinner {
+      width         : 48px;
+      height        : 48px;
+      border        : 4px solid #e5e0d8;
+      border-top    : 4px solid var(--green);
+      border-radius : 50%;
+      animation     : spin 0.8s linear infinite;
+      margin        : 0 auto 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p {
+      font-family : 'Syne', sans-serif;
+      font-weight : 700;
+      color       : var(--muted);
+    }
+
+    .results { margin-top: 40px; animation: fadeUp 0.5s ease; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .grade-banner {
+      border-radius: 20px;
+      padding      : 32px 36px;
+      display      : flex;
+      align-items  : center;
+      gap          : 24px;
+      margin-bottom: 24px;
+      color        : white;
+    }
+
+    .grade-circle {
+      width        : 90px;
+      height       : 90px;
+      border-radius: 50%;
+      background   : rgba(255,255,255,0.2);
+      display      : flex;
+      align-items  : center;
+      justify-content: center;
+      font-family  : 'Syne', sans-serif;
+      font-size    : 2.8rem;
+      font-weight  : 800;
+      flex-shrink  : 0;
+      border       : 3px solid rgba(255,255,255,0.4);
+    }
+
+    .grade-info h2 {
+      font-family  : 'Syne', sans-serif;
+      font-size    : 1.8rem;
+      font-weight  : 800;
+    }
+
+    .grade-info .hindi {
+      font-size    : 1rem;
+      opacity      : 0.8;
+      margin-top   : 2px;
+    }
+
+    .grade-info .rec {
+      margin-top   : 10px;
+      font-size    : 0.95rem;
+      background   : rgba(255,255,255,0.2);
+      padding      : 6px 14px;
+      border-radius: 50px;
+      display      : inline-block;
+    }
+
+    .stats-grid {
+      display              : grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap                  : 16px;
+      margin-bottom        : 24px;
+    }
+
+    .stat-card {
+      background   : white;
+      border-radius: 16px;
+      padding      : 24px;
+      text-align   : center;
+      box-shadow   : 0 2px 12px rgba(0,0,0,0.06);
+      border       : 1px solid #ede8e0;
+    }
+
+    .stat-card .icon  { font-size: 1.8rem; margin-bottom: 8px; }
+    .stat-card .value {
+      font-family : 'Syne', sans-serif;
+      font-size   : 1.6rem;
+      font-weight : 800;
+      color       : var(--green);
+    }
+    .stat-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+    .cv-section {
+      background   : white;
+      border-radius: 16px;
+      padding      : 24px;
+      margin-bottom: 24px;
+      border       : 1px solid #ede8e0;
+    }
+
+    .cv-section h3 {
+      font-family  : 'Syne', sans-serif;
+      font-size    : 1rem;
+      font-weight  : 700;
+      margin-bottom: 16px;
+    }
+
+    .metric-bar {
+      margin-bottom: 14px;
+    }
+
+    .metric-bar:last-child { margin-bottom: 0; }
+
+    .metric-bar .meta {
+      display        : flex;
+      justify-content: space-between;
+      font-size      : 0.85rem;
+      margin-bottom  : 6px;
+    }
+
+    .bar-track {
+      height       : 8px;
+      background   : #f0ebe3;
+      border-radius: 8px;
+      overflow     : hidden;
+    }
+
+    .bar-fill {
+      height       : 100%;
+      border-radius: 8px;
+      transition   : width 0.5s ease;
+    }
+
+    .issues-section {
+      background   : #fff8f0;
+      border       : 1px solid #ffe8d0;
+      border-radius: 16px;
+      padding      : 20px 24px;
+      margin-bottom: 24px;
+    }
+
+    .issues-section h3 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color      : var(--orange);
+    }
+
+    .issue-tag {
+      display      : inline-block;
+      background   : #ffe8d0;
+      color        : #c05c20;
+      padding      : 5px 14px;
+      border-radius: 50px;
+      font-size    : 0.85rem;
+      margin       : 4px;
+    }
+
+    .reset-btn {
+      background   : transparent;
+      border       : 2px solid var(--green);
+      color        : var(--green);
+      padding      : 12px 32px;
+      border-radius: 50px;
+      font-family  : 'Syne', sans-serif;
+      font-weight  : 700;
+      cursor       : pointer;
+      transition   : all 0.15s;
+      display      : block;
+      margin       : 0 auto;
+    }
+
+    .reset-btn:hover { background: var(--green); color: white; }
+
+    .yolo-badge {
+      font-size    : 0.75rem;
+      background   : #f0ebe3;
+      padding      : 4px 10px;
+      border-radius: 50px;
+      color        : var(--muted);
+      display      : inline-block;
+      margin-top   : 8px;
+    }
+
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .grade-banner { flex-direction: column; text-align: center; }
+      .header { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback } = React;
+
+    const GRADE_COLORS = {
+      A: { bg: "linear-gradient(135deg, #2d6a4f, #40916c)", label: "Very Fresh" },
+      B: { bg: "linear-gradient(135deg, #5a8a2f, #95d44a)", label: "Fresh"      },
+      C: { bg: "linear-gradient(135deg, #c07a20, #f4c430)", label: "Aging"       },
+      D: { bg: "linear-gradient(135deg, #8b1a1a, #c1392b)", label: "Avoid"       },
+    };
+
+    function MetricBar({ label, value, max, color, unit = "" }) {
+      const pct = Math.min((value / max) * 100, 100);
+      return (
+        <div className="metric-bar">
+          <div className="meta">
+            <span>{label}</span>
+            <span style={{fontWeight:600}}>{value}{unit}</span>
+          </div>
+          <div className="bar-track">
+            <div className="bar-fill" style={{ width: pct + "%", background: color }} />
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [image,    setImage]    = useState(null);
+      const [preview,  setPreview]  = useState(null);
+      const [loading,  setLoading]  = useState(false);
+      const [result,   setResult]   = useState(null);
+      const [error,    setError]    = useState(null);
+      const [drag,     setDrag]     = useState(false);
+
+      const handleFile = (file) => {
+        if (!file) return;
+        setImage(file);
+        setPreview(URL.createObjectURL(file));
+        setResult(null);
+        setError(null);
+      };
+
+      const analyze = async () => {
+        if (!image) return;
+        setLoading(true);
+        setError(null);
+        try {
+          const form = new FormData();
+          form.append("file", image);
+          const res  = await fetch("http://localhost:8000/analyze", {
+            method: "POST", body: form
+          });
+          const json = await res.json();
+          if (json.status === "success") setResult(json.data);
+          else setError(json.detail || "Analysis failed");
+        } catch (e) {
+          setError("Could not connect to API. Make sure FastAPI is running.");
+        }
+        setLoading(false);
+      };
+
+      const reset = () => {
+        setImage(null); setPreview(null);
+        setResult(null); setError(null);
+      };
+
+      const grade   = result?.grade;
+      const gStyle  = grade ? GRADE_COLORS[grade] : null;
+      const cv      = result?.cv_metrics;
+
+      return (
+        <>
+          <div className="header">
+            <div className="header-icon">🥦</div>
+            <div>
+              <h1>Vegetable Freshness Grader</h1>
+              {/* CHANGED: Groq → Custom CNN */}
+              <p>CV-powered grading for Indian markets · OpenCV + YOLOv8 + Custom CNN</p>
+            </div>
+          </div>
+
+          <div className="main">
+
+            {!result && (
+              <>
+                <div
+                  className={`upload-zone ${drag ? "drag" : ""}`}
+                  onDragOver={e  => { e.preventDefault(); setDrag(true);  }}
+                  onDragLeave={() => setDrag(false)}
+                  onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}
+                >
+                  <input type="file" accept="image/*"
+                    onChange={e => handleFile(e.target.files[0])} />
+                  <div className="upload-icon">📸</div>
+                  <h2>Drop a vegetable photo here</h2>
+                  <p>Supports JPG, PNG, WEBP · Works best with clear single-vegetable photos</p>
+                </div>
+
+                {preview && (
+                  <div className="preview-wrap">
+                    <img src={preview} alt="preview" />
+                  </div>
+                )}
+
+                {preview && !loading && (
+                  <div style={{textAlign:"center"}}>
+                    <button className="btn" onClick={analyze}>
+                      Analyze Freshness →
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {loading && (
+              <div className="loading">
+                <div className="spinner" />
+                {/* CHANGED: Groq → CNN */}
+                <p>Running OpenCV + YOLO + CNN analysis...</p>
+              </div>
+            )}
+
+            {error && (
+              <div style={{background:"#fee",border:"1px solid #fcc",borderRadius:12,padding:20,marginTop:24,color:"#c00"}}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {result && !loading && (
+              <div className="results">
+
+                <div className="grade-banner" style={{background: gStyle.bg}}>
+                  <div className="grade-circle">{grade}</div>
+                  <div className="grade-info">
+                    <h2>{result.vegetable_name} · {gStyle.label}</h2>
+                    <div className="hindi">{result.hindi_name} · Freshness {result.freshness_score}/100</div>
+                    <div className="rec">💡 {result.recommendation}</div>
+                  </div>
+                  {preview && <img src={preview} alt="veg"
+                    style={{width:90,height:90,borderRadius:12,objectFit:"cover",marginLeft:"auto",border:"3px solid rgba(255,255,255,0.4)"}} />}
+                </div>
+
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="icon">📅</div>
+                    <div className="value">{result.shelf_life_days} days</div>
+                    <div className="label">Shelf Life</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="icon">💰</div>
+                    <div className="value">₹{result.price_min_inr_per_kg}–{result.price_max_inr_per_kg}</div>
+                    <div className="label">Fair Price / kg</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="icon">🔬</div>
+                    <div className="value">{result.freshness_score}</div>
+                    <div className="label">Freshness Score</div>
+                  </div>
+                </div>
+
+                <div className="cv-section">
+                  <h3>🔬 OpenCV Analysis</h3>
+                  <MetricBar label="Color Saturation"  value={cv.saturation}   max={255} color="#40916c" unit="" />
+                  <MetricBar label="Rot / Dark Spots"  value={cv.rot_pct}      max={100} color="#c1392b" unit="%" />
+                  <MetricBar label="Wilting"           value={cv.wilting_pct}  max={100} color="#e07b39" unit="%" />
+                  <MetricBar label="Wrinkle Density"   value={cv.edge_density} max={30}  color="#f4c430" unit="" />
+                  <div className="yolo-badge">
+                    🎯 YOLO hint: {result.yolo_hint?.name} ({(result.yolo_hint?.confidence * 100).toFixed(0)}% conf)
+                    · ML prediction: {result.ml_prediction} ({result.ml_confidence?.toFixed(0)}%)
+                  </div>
+                </div>
+
+                {result.issues?.length > 0 && (
+                  <div className="issues-section">
+                    <h3>⚠️ Issues Detected</h3>
+                    {result.issues.map((i, idx) => (
+                      <span className="issue-tag" key={idx}>{i}</span>
+                    ))}
+                  </div>
+                )}
+
+                <button className="reset-btn" onClick={reset}>
+                  ← Analyze Another Vegetable
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
